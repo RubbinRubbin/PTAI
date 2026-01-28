@@ -1,0 +1,31 @@
+{
+  "name": "ptai",
+  "version": "1.0.0",
+  "description": "Personal Trainer AI - Gestione atleti e metriche di allenamento",
+  "private": true,
+  "scripts": {
+    "install:all": "npm run install:backend && npm run install:frontend && npm run install:electron",
+    "install:backend": "cd backend && pip install -r requirements.txt",
+    "install:frontend": "cd frontend && npm install",
+    "install:electron": "cd electron && npm install",
+    "dev:backend": "cd backend && python app.py",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "cd frontend && npm run build",
+    "electron:dev": "cd electron && npm run start:dev",
+    "electron:start": "cd electron && npm start",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "keywords": [
+    "personal-trainer",
+    "fitness",
+    "athletes",
+    "metrics",
+    "training"
+  ],
+  "author": "",
+  "license": "MIT"
+}

@@ -1,0 +1,33 @@
+{
+  "name": "ptai-electron",
+  "version": "1.0.0",
+  "description": "PTAI Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:dev": "NODE_ENV=development electron ."
+  },
+  "dependencies": {
+    "electron": "^28.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.9.0"
+  },
+  "build": {
+    "appId": "com.ptai.app",
+    "productName": "PTAI - Personal Trainer AI",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "../frontend/dist/**/*",
+      "../backend/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    }
+  }
+}
