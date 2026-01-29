@@ -182,80 +182,153 @@ function AthleteDetail() {
     )
   }
 
-  // Prepare chart data
-  const prepareChartData = () => {
-    const defsToShow = compareMode && selectedForCompare.length > 0
-      ? definitions.filter(d => selectedForCompare.includes(d.id))
-      : definitions
-
-    if (compareMode && selectedForCompare.length > 0) {
-      // Multiple metrics comparison
-      const allData = []
-      defsToShow.forEach((def, index) => {
-        def.values.forEach(val => {
-          allData.push({
-            x: val.valore_x,
-            y: val.valore_y,
-            metric: def.nome,
-            color: COLORS[index % COLORS.length],
-          })
-        })
-      })
-      return allData
+  // Prepare chart data for a single metric
+  const prepareChartDataForMetric = (definition) => {
+    if (!definition || !definition.values || definition.values.length === 0) {
+      return []
     }
+    // Sort by X value to ensure correct display
+    return definition.values
+      .map(val => ({
+        x: val.valore_x,
+        y: val.valore_y,
+      }))
+      .sort((a, b) => a.x - b.x)
+  }
 
-    // Single metric or all metrics
+  // Prepare comparison chart data
+  const prepareComparisonData = () => {
+    const defsToCompare = definitions.filter(d => selectedForCompare.includes(d.id))
     const allData = []
-    defsToShow.forEach((def) => {
+    defsToCompare.forEach((def, index) => {
       def.values.forEach(val => {
         allData.push({
           x: val.valore_x,
           y: val.valore_y,
           metric: def.nome,
+          color: COLORS[index % COLORS.length],
         })
       })
     })
     return allData
   }
 
-  const renderChart = () => {
-    const data = prepareChartData()
+  // Render a single chart for a specific metric
+  const renderSingleChart = (definition, colorIndex = 0) => {
+    const data = prepareChartDataForMetric(definition)
+    const xLabel = `${definition.asse_x_nome} (${definition.asse_x_unita})`
+    const yLabel = `${definition.asse_y_nome} (${definition.asse_y_unita})`
 
     if (data.length === 0) {
       return (
-        <Box sx={{ textAlign: 'center', py: 8, bgcolor: 'grey.50', borderRadius: 2 }}>
-          <Typography color="text.secondary">
-            Crea una metrica e aggiungi valori per visualizzare il grafico
+        <Box sx={{ textAlign: 'center', py: 4, bgcolor: 'grey.50', borderRadius: 2 }}>
+          <Typography color="text.secondary" variant="body2">
+            Aggiungi valori per visualizzare il grafico
           </Typography>
         </Box>
       )
     }
 
-    // Get axis labels from first definition (or combined if comparing)
-    const defsToShow = compareMode && selectedForCompare.length > 0
-      ? definitions.filter(d => selectedForCompare.includes(d.id))
-      : definitions.filter(d => d.values.length > 0)
+    if (chartType === 'line') {
+      return (
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="x"
+              type="number"
+              label={{ value: xLabel, position: 'insideBottom', offset: -5, fontSize: 11 }}
+            />
+            <YAxis
+              dataKey="y"
+              label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
+            />
+            <Tooltip formatter={(value, name) => [value, name === 'y' ? definition.asse_y_nome : definition.asse_x_nome]} />
+            <Line
+              type="monotone"
+              dataKey="y"
+              stroke={COLORS[colorIndex % COLORS.length]}
+              name={definition.asse_y_nome}
+              dot={{ r: 4 }}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )
+    }
 
-    const xLabel = defsToShow.length > 0 ? `${defsToShow[0].asse_x_nome} (${defsToShow[0].asse_x_unita})` : 'X'
-    const yLabel = defsToShow.length > 0 ? `${defsToShow[0].asse_y_nome} (${defsToShow[0].asse_y_unita})` : 'Y'
+    // Scatter chart
+    return (
+      <ResponsiveContainer width="100%" height={220}>
+        <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="x"
+            type="number"
+            name={definition.asse_x_nome}
+            label={{ value: xLabel, position: 'insideBottom', offset: -5, fontSize: 11 }}
+          />
+          <YAxis
+            dataKey="y"
+            type="number"
+            name={definition.asse_y_nome}
+            label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
+          />
+          <Tooltip
+            cursor={{ strokeDasharray: '3 3' }}
+            formatter={(value, name) => [value, name === 'y' ? definition.asse_y_nome : definition.asse_x_nome]}
+          />
+          <Scatter
+            name={definition.nome}
+            data={data}
+            fill={COLORS[colorIndex % COLORS.length]}
+          />
+        </ScatterChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  // Render comparison chart (multiple metrics on same chart)
+  const renderComparisonChart = () => {
+    const data = prepareComparisonData()
+    const defsToCompare = definitions.filter(d => selectedForCompare.includes(d.id))
+
+    if (data.length === 0 || defsToCompare.length === 0) {
+      return (
+        <Box sx={{ textAlign: 'center', py: 4, bgcolor: 'grey.50', borderRadius: 2 }}>
+          <Typography color="text.secondary">
+            Seleziona almeno due metriche per comparare
+          </Typography>
+        </Box>
+      )
+    }
+
+    const xLabel = `${defsToCompare[0].asse_x_nome} (${defsToCompare[0].asse_x_unita})`
+    const yLabel = `${defsToCompare[0].asse_y_nome} (${defsToCompare[0].asse_y_unita})`
+
+    // Group by metric
+    const groupedByMetric = {}
+    data.forEach(point => {
+      if (!groupedByMetric[point.metric]) groupedByMetric[point.metric] = []
+      groupedByMetric[point.metric].push(point)
+    })
 
     if (chartType === 'line') {
-      // Group by metric for line chart
+      // For line chart, we need to restructure data
       const groupedData = {}
       data.forEach(point => {
         if (!groupedData[point.x]) groupedData[point.x] = { x: point.x }
         groupedData[point.x][point.metric] = point.y
       })
       const lineData = Object.values(groupedData).sort((a, b) => a.x - b.x)
-
       const metrics = [...new Set(data.map(d => d.metric))]
 
       return (
-        <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={lineData}>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={lineData} margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="x" label={{ value: xLabel, position: 'insideBottom', offset: -5 }} />
-            <YAxis label={{ value: yLabel, angle: -90, position: 'insideLeft' }} />
+            <XAxis dataKey="x" label={{ value: xLabel, position: 'insideBottom', offset: -5, fontSize: 11 }} />
+            <YAxis label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }} />
             <Tooltip />
             <Legend />
             {metrics.map((metric, index) => (
@@ -265,6 +338,7 @@ function AthleteDetail() {
                 dataKey={metric}
                 stroke={COLORS[index % COLORS.length]}
                 name={metric}
+                dot={{ r: 4 }}
                 connectNulls
               />
             ))}
@@ -273,45 +347,22 @@ function AthleteDetail() {
       )
     }
 
-    // Scatter chart
-    if (compareMode && selectedForCompare.length > 0) {
-      // Multiple series
-      const groupedByMetric = {}
-      data.forEach(point => {
-        if (!groupedByMetric[point.metric]) groupedByMetric[point.metric] = []
-        groupedByMetric[point.metric].push(point)
-      })
-
-      return (
-        <ResponsiveContainer width="100%" height={400}>
-          <ScatterChart>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="x" type="number" label={{ value: xLabel, position: 'insideBottom', offset: -5 }} />
-            <YAxis dataKey="y" type="number" label={{ value: yLabel, angle: -90, position: 'insideLeft' }} />
-            <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-            <Legend />
-            {Object.entries(groupedByMetric).map(([metricName, points], index) => (
-              <Scatter
-                key={metricName}
-                name={metricName}
-                data={points}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </ScatterChart>
-        </ResponsiveContainer>
-      )
-    }
-
     return (
-      <ResponsiveContainer width="100%" height={400}>
-        <ScatterChart>
+      <ResponsiveContainer width="100%" height={280}>
+        <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="x" type="number" label={{ value: xLabel, position: 'insideBottom', offset: -5 }} />
-          <YAxis dataKey="y" type="number" label={{ value: yLabel, angle: -90, position: 'insideLeft' }} />
+          <XAxis dataKey="x" type="number" label={{ value: xLabel, position: 'insideBottom', offset: -5, fontSize: 11 }} />
+          <YAxis dataKey="y" type="number" label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }} />
           <Tooltip cursor={{ strokeDasharray: '3 3' }} />
           <Legend />
-          <Scatter name="Valori" data={data} fill="#8884d8" />
+          {Object.entries(groupedByMetric).map(([metricName, points], index) => (
+            <Scatter
+              key={metricName}
+              name={metricName}
+              data={points}
+              fill={COLORS[index % COLORS.length]}
+            />
+          ))}
         </ScatterChart>
       </ResponsiveContainer>
     )
@@ -441,12 +492,39 @@ function AthleteDetail() {
           </Box>
         )}
 
-        {/* Chart */}
+        {/* Charts Section */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Grafico {compareMode && selectedForCompare.length > 0 ? '(Comparazione)' : ''}
-          </Typography>
-          {renderChart()}
+          {compareMode && selectedForCompare.length > 0 ? (
+            /* Comparison Mode - Single combined chart */
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Comparazione Metriche
+              </Typography>
+              {renderComparisonChart()}
+            </Box>
+          ) : (
+            /* Normal Mode - Separate chart for each metric */
+            definitions.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6, bgcolor: 'grey.50', borderRadius: 2 }}>
+                <Typography color="text.secondary">
+                  Crea una metrica e aggiungi valori per visualizzare i grafici
+                </Typography>
+              </Box>
+            ) : (
+              <Grid container spacing={2}>
+                {definitions.map((def, index) => (
+                  <Grid item xs={12} md={6} key={def.id}>
+                    <Paper sx={{ p: 2 }} variant="outlined">
+                      <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                        {def.nome}
+                      </Typography>
+                      {renderSingleChart(def, index)}
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            )
+          )}
         </Box>
 
         {/* Metrics Cards */}
