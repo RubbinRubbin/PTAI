@@ -19,6 +19,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Menu,
+  ListItemIcon,
+  ListItemText,
   CircularProgress,
   Card,
   CardContent,
@@ -80,6 +83,10 @@ function AthleteDetail() {
   const [valuesManagerOpen, setValuesManagerOpen] = useState(false)
   const [editingDefinition, setEditingDefinition] = useState(null)
   const [selectedDefinitionForValues, setSelectedDefinitionForValues] = useState(null)
+
+  // Edit menu
+  const [editMenuAnchor, setEditMenuAnchor] = useState(null)
+  const [editMenuDefinition, setEditMenuDefinition] = useState(null)
 
   // Chart settings
   const [chartType, setChartType] = useState('scatter')
@@ -651,44 +658,23 @@ function AthleteDetail() {
                         color={def.values.length > 0 ? 'success' : 'default'}
                       />
                     </CardContent>
-                    <CardActions sx={{ pt: 0 }}>
-                      <Button
+                    <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
+                      <IconButton
                         size="small"
-                        startIcon={<AddIcon />}
-                        onClick={() => {
-                          setSelectedDefinitionForValues(def)
-                          setValuesFormOpen(true)
+                        onClick={(e) => {
+                          setEditMenuAnchor(e.currentTarget)
+                          setEditMenuDefinition(def)
                         }}
+                        title="Modifica"
                       >
-                        Aggiungi
-                      </Button>
-                      <Button
-                        size="small"
-                        startIcon={<EditIcon />}
-                        onClick={() => {
-                          setSelectedDefinitionForValues(def)
-                          setValuesManagerOpen(true)
-                        }}
-                        disabled={def.values.length === 0}
-                      >
-                        Gestisci
-                      </Button>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
                       <IconButton
                         size="small"
                         onClick={() => handleDefinitionDuplicate(def.id)}
                         title="Duplica"
                       >
                         <ContentCopyIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setEditingDefinition(def)
-                          setDefinitionFormOpen(true)
-                        }}
-                        title="Modifica"
-                      >
-                        <EditIcon fontSize="small" />
                       </IconButton>
                       <IconButton
                         size="small"
@@ -862,6 +848,53 @@ function AthleteDetail() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Menu */}
+      <Menu
+        anchorEl={editMenuAnchor}
+        open={Boolean(editMenuAnchor)}
+        onClose={() => {
+          setEditMenuAnchor(null)
+          setEditMenuDefinition(null)
+        }}
+      >
+        <MenuItem onClick={() => {
+          setEditingDefinition(editMenuDefinition)
+          setDefinitionFormOpen(true)
+          setEditMenuAnchor(null)
+          setEditMenuDefinition(null)
+        }}>
+          <ListItemIcon>
+            <EditIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Modifica Metrica</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => {
+          setSelectedDefinitionForValues(editMenuDefinition)
+          setValuesFormOpen(true)
+          setEditMenuAnchor(null)
+          setEditMenuDefinition(null)
+        }}>
+          <ListItemIcon>
+            <AddIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Aggiungi Valori</ListItemText>
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setSelectedDefinitionForValues(editMenuDefinition)
+            setValuesManagerOpen(true)
+            setEditMenuAnchor(null)
+            setEditMenuDefinition(null)
+          }}
+          disabled={!editMenuDefinition || editMenuDefinition.values.length === 0}
+        >
+          <ListItemIcon>
+            <TimelineIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Gestisci Valori</ListItemText>
+        </MenuItem>
+      </Menu>
 
       {/* Snackbar */}
       <Snackbar
