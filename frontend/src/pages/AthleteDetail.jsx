@@ -49,6 +49,7 @@ import {
 } from 'recharts'
 import MetricDefinitionForm from '../components/MetricDefinitionForm'
 import MetricValuesForm from '../components/MetricValuesForm'
+import MetricValuesManager from '../components/MetricValuesManager'
 import {
   getAthlete,
   getMetricDefinitions,
@@ -57,6 +58,7 @@ import {
   deleteMetricDefinition,
   duplicateMetricDefinition,
   addMetricValues,
+  updateMetricValue,
   deleteMetricValue,
   exportAthlete,
 } from '../services/api'
@@ -75,6 +77,7 @@ function AthleteDetail() {
   // Forms
   const [definitionFormOpen, setDefinitionFormOpen] = useState(false)
   const [valuesFormOpen, setValuesFormOpen] = useState(false)
+  const [valuesManagerOpen, setValuesManagerOpen] = useState(false)
   const [editingDefinition, setEditingDefinition] = useState(null)
   const [selectedDefinitionForValues, setSelectedDefinitionForValues] = useState(null)
 
@@ -163,13 +166,32 @@ function AthleteDetail() {
   }
 
   const handleValueDelete = async (valueId) => {
-    if (!window.confirm('Sei sicuro di voler eliminare questo valore?')) return
     try {
       await deleteMetricValue(valueId)
       showSnackbar('Valore eliminato')
       loadData()
     } catch (error) {
       showSnackbar('Errore nell\'eliminazione', 'error')
+    }
+  }
+
+  const handleValueUpdate = async (valueId, data) => {
+    try {
+      await updateMetricValue(valueId, data)
+      showSnackbar('Valore aggiornato')
+      loadData()
+    } catch (error) {
+      showSnackbar('Errore nell\'aggiornamento', 'error')
+    }
+  }
+
+  const handleManagerAddValues = async (values) => {
+    try {
+      await addMetricValues(selectedDefinitionForValues.id, values)
+      showSnackbar(`${values.length} valore/i aggiunto/i con successo`)
+      loadData()
+    } catch (error) {
+      showSnackbar('Errore nell\'aggiunta dei valori', 'error')
     }
   }
 
@@ -638,7 +660,18 @@ function AthleteDetail() {
                           setValuesFormOpen(true)
                         }}
                       >
-                        Valori
+                        Aggiungi
+                      </Button>
+                      <Button
+                        size="small"
+                        startIcon={<EditIcon />}
+                        onClick={() => {
+                          setSelectedDefinitionForValues(def)
+                          setValuesManagerOpen(true)
+                        }}
+                        disabled={def.values.length === 0}
+                      >
+                        Gestisci
                       </Button>
                       <IconButton
                         size="small"
@@ -743,6 +776,19 @@ function AthleteDetail() {
         }}
         onSubmit={handleValuesSubmit}
         definition={selectedDefinitionForValues}
+      />
+
+      {/* Values Manager Dialog */}
+      <MetricValuesManager
+        open={valuesManagerOpen}
+        onClose={() => {
+          setValuesManagerOpen(false)
+          setSelectedDefinitionForValues(null)
+        }}
+        definition={selectedDefinitionForValues}
+        onUpdateValue={handleValueUpdate}
+        onDeleteValue={handleValueDelete}
+        onAddValues={handleManagerAddValues}
       />
 
       {/* Chart Settings Dialog */}
