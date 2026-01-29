@@ -33,6 +33,8 @@ import DownloadIcon from '@mui/icons-material/Download'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import SettingsIcon from '@mui/icons-material/Settings'
 import TimelineIcon from '@mui/icons-material/Timeline'
+import FullscreenIcon from '@mui/icons-material/Fullscreen'
+import CloseIcon from '@mui/icons-material/Close'
 import {
   LineChart,
   Line,
@@ -80,6 +82,7 @@ function AthleteDetail() {
   const [chartType, setChartType] = useState('scatter')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [metricColors, setMetricColors] = useState({})
+  const [expandedChart, setExpandedChart] = useState(null)
 
   // Comparison mode
   const [compareMode, setCompareMode] = useState(false)
@@ -264,7 +267,7 @@ function AthleteDetail() {
   }
 
   // Render a single chart for a specific metric
-  const renderSingleChart = (definition, colorIndex = 0) => {
+  const renderSingleChart = (definition, colorIndex = 0, chartHeight = 250) => {
     const data = prepareChartDataForMetric(definition)
     const xLabel = `${definition.asse_x_nome} (${definition.asse_x_unita})`
     const yLabel = `${definition.asse_y_nome} (${definition.asse_y_unita})`
@@ -287,7 +290,7 @@ function AthleteDetail() {
 
     if (chartType === 'line') {
       return (
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
           <LineChart data={data} margin={{ top: 15, right: 25, left: 15, bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
             <XAxis
@@ -323,7 +326,7 @@ function AthleteDetail() {
 
     // Scatter chart
     return (
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <ScatterChart margin={{ top: 15, right: 25, left: 15, bottom: 30 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
           <XAxis
@@ -491,7 +494,7 @@ function AthleteDetail() {
   }
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="xl">
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Button
@@ -553,14 +556,6 @@ function AthleteDetail() {
             Crea Metrica
           </Button>
           <Button
-            variant="outlined"
-            startIcon={<SettingsIcon />}
-            onClick={() => setSettingsOpen(true)}
-            disabled={definitions.length === 0}
-          >
-            Modifica Grafico
-          </Button>
-          <Button
             variant={compareMode ? 'contained' : 'outlined'}
             color={compareMode ? 'secondary' : 'primary'}
             startIcon={<CompareArrowsIcon />}
@@ -601,7 +596,7 @@ function AthleteDetail() {
         {/* Main Content: Metrics Left, Charts Right */}
         <Grid container spacing={3}>
           {/* Left Column - Metrics */}
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={3}>
             <Typography variant="h6" gutterBottom>
               Metriche ({definitions.length})
             </Typography>
@@ -678,7 +673,7 @@ function AthleteDetail() {
           </Grid>
 
           {/* Right Column - Charts */}
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={9}>
             <Typography variant="h6" gutterBottom>
               Grafici
             </Typography>
@@ -704,9 +699,19 @@ function AthleteDetail() {
                   {definitions.map((def, index) => (
                     <Grid item xs={12} lg={6} key={def.id}>
                       <Paper sx={{ p: 2, borderTop: `3px solid ${getMetricColor(def.id, index)}` }} variant="outlined">
-                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                          {def.nome}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                          <Typography variant="subtitle1" fontWeight="bold">
+                            {def.nome}
+                          </Typography>
+                          <Box>
+                            <IconButton size="small" onClick={() => setSettingsOpen(true)} title="Impostazioni">
+                              <SettingsIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => setExpandedChart(def.id)} title="Ingrandisci">
+                              <FullscreenIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </Box>
                         {renderSingleChart(def, index)}
                       </Paper>
                     </Grid>
@@ -788,6 +793,28 @@ function AthleteDetail() {
         <DialogActions>
           <Button onClick={() => setSettingsOpen(false)}>Chiudi</Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Expanded Chart Dialog */}
+      <Dialog
+        open={expandedChart !== null}
+        onClose={() => setExpandedChart(null)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {definitions.find(d => d.id === expandedChart)?.nome}
+          <IconButton onClick={() => setExpandedChart(null)}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {expandedChart && renderSingleChart(
+            definitions.find(d => d.id === expandedChart),
+            definitions.findIndex(d => d.id === expandedChart),
+            400
+          )}
+        </DialogContent>
       </Dialog>
 
       {/* Snackbar */}
