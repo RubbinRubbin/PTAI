@@ -35,6 +35,8 @@ export const updateMetricDefinition = (id, data) => api.put(`/metrics/${id}`, da
 
 export const deleteMetricDefinition = (id) => api.delete(`/metrics/${id}`)
 
+export const duplicateMetricDefinition = (id) => api.post(`/metrics/${id}/duplicate`)
+
 // ============ METRIC VALUES ============
 
 export const getMetricValues = (definitionId) => api.get(`/metrics/${definitionId}/values`)

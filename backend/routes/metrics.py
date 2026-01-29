@@ -59,6 +59,37 @@ def delete_metric_definition(id):
 
     return jsonify({'message': 'Metrica eliminata con successo'}), 200
 
+@api.route('/metrics/<int:id>/duplicate', methods=['POST'])
+def duplicate_metric_definition(id):
+    """Duplica una definizione di metrica con tutti i suoi valori"""
+    original = MetricDefinition.query.get_or_404(id)
+
+    # Crea nuova definizione con nome modificato
+    new_definition = MetricDefinition(
+        athlete_id=original.athlete_id,
+        nome=f"{original.nome} (copia)",
+        asse_x_nome=original.asse_x_nome,
+        asse_x_unita=original.asse_x_unita,
+        asse_y_nome=original.asse_y_nome,
+        asse_y_unita=original.asse_y_unita
+    )
+
+    db.session.add(new_definition)
+    db.session.flush()  # Per ottenere l'ID della nuova definizione
+
+    # Duplica tutti i valori
+    for value in original.values:
+        new_value = MetricValue(
+            definition_id=new_definition.id,
+            valore_x=value.valore_x,
+            valore_y=value.valore_y
+        )
+        db.session.add(new_value)
+
+    db.session.commit()
+
+    return jsonify(new_definition.to_dict()), 201
+
 # ============ METRIC VALUES ============
 
 @api.route('/metrics/<int:definition_id>/values', methods=['GET'])

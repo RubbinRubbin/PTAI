@@ -28,6 +28,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DownloadIcon from '@mui/icons-material/Download'
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows'
 import SettingsIcon from '@mui/icons-material/Settings'
@@ -52,6 +53,7 @@ import {
   createMetricDefinition,
   updateMetricDefinition,
   deleteMetricDefinition,
+  duplicateMetricDefinition,
   addMetricValues,
   deleteMetricValue,
   exportAthlete,
@@ -146,6 +148,16 @@ function AthleteDetail() {
     }
   }
 
+  const handleDefinitionDuplicate = async (definitionId) => {
+    try {
+      await duplicateMetricDefinition(definitionId)
+      showSnackbar('Metrica duplicata con successo')
+      loadData()
+    } catch (error) {
+      showSnackbar('Errore nella duplicazione', 'error')
+    }
+  }
+
   const handleValueDelete = async (valueId) => {
     if (!window.confirm('Sei sicuro di voler eliminare questo valore?')) return
     try {
@@ -213,6 +225,17 @@ function AthleteDetail() {
     return allData
   }
 
+  // Calculate domain with padding for better chart visibility
+  const calculateDomain = (data, key) => {
+    if (!data || data.length === 0) return ['auto', 'auto']
+    const values = data.map(d => d[key])
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const range = max - min
+    const padding = range * 0.1 || 1 // 10% padding or 1 if range is 0
+    return [min - padding, max + padding]
+  }
+
   // Render a single chart for a specific metric
   const renderSingleChart = (definition, colorIndex = 0) => {
     const data = prepareChartDataForMetric(definition)
@@ -229,27 +252,36 @@ function AthleteDetail() {
       )
     }
 
+    const xDomain = calculateDomain(data, 'x')
+    const yDomain = calculateDomain(data, 'y')
+
     if (chartType === 'line') {
       return (
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
-            <CartesianGrid strokeDasharray="3 3" />
+          <LineChart data={data} margin={{ top: 15, right: 25, left: 15, bottom: 30 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
             <XAxis
               dataKey="x"
               type="number"
-              label={{ value: xLabel, position: 'insideBottom', offset: -5, fontSize: 11 }}
+              domain={xDomain}
+              label={{ value: xLabel, position: 'insideBottom', offset: -10, fontSize: 11 }}
+              tick={{ fontSize: 10 }}
             />
             <YAxis
               dataKey="y"
+              domain={yDomain}
               label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
+              tick={{ fontSize: 10 }}
             />
             <Tooltip formatter={(value, name) => [value, name === 'y' ? definition.asse_y_nome : definition.asse_x_nome]} />
             <Line
               type="monotone"
               dataKey="y"
               stroke={COLORS[colorIndex % COLORS.length]}
+              strokeWidth={2}
               name={definition.asse_y_nome}
-              dot={{ r: 4 }}
+              dot={{ r: 5, strokeWidth: 2 }}
+              activeDot={{ r: 7 }}
               connectNulls
             />
           </LineChart>
@@ -260,19 +292,23 @@ function AthleteDetail() {
     // Scatter chart
     return (
       <ResponsiveContainer width="100%" height={220}>
-        <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
-          <CartesianGrid strokeDasharray="3 3" />
+        <ScatterChart margin={{ top: 15, right: 25, left: 15, bottom: 30 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
           <XAxis
             dataKey="x"
             type="number"
+            domain={xDomain}
             name={definition.asse_x_nome}
-            label={{ value: xLabel, position: 'insideBottom', offset: -5, fontSize: 11 }}
+            label={{ value: xLabel, position: 'insideBottom', offset: -10, fontSize: 11 }}
+            tick={{ fontSize: 10 }}
           />
           <YAxis
             dataKey="y"
             type="number"
+            domain={yDomain}
             name={definition.asse_y_nome}
             label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
+            tick={{ fontSize: 10 }}
           />
           <Tooltip
             cursor={{ strokeDasharray: '3 3' }}
@@ -282,6 +318,7 @@ function AthleteDetail() {
             name={definition.nome}
             data={data}
             fill={COLORS[colorIndex % COLORS.length]}
+            line={{ stroke: COLORS[colorIndex % COLORS.length], strokeWidth: 1.5 }}
           />
         </ScatterChart>
       </ResponsiveContainer>
@@ -305,6 +342,8 @@ function AthleteDetail() {
 
     const xLabel = `${defsToCompare[0].asse_x_nome} (${defsToCompare[0].asse_x_unita})`
     const yLabel = `${defsToCompare[0].asse_y_nome} (${defsToCompare[0].asse_y_unita})`
+    const xDomain = calculateDomain(data, 'x')
+    const yDomain = calculateDomain(data, 'y')
 
     // Group by metric
     const groupedByMetric = {}
@@ -325,10 +364,19 @@ function AthleteDetail() {
 
       return (
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={lineData} margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="x" label={{ value: xLabel, position: 'insideBottom', offset: -5, fontSize: 11 }} />
-            <YAxis label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }} />
+          <LineChart data={lineData} margin={{ top: 15, right: 25, left: 15, bottom: 30 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+            <XAxis
+              dataKey="x"
+              domain={xDomain}
+              label={{ value: xLabel, position: 'insideBottom', offset: -10, fontSize: 11 }}
+              tick={{ fontSize: 10 }}
+            />
+            <YAxis
+              domain={yDomain}
+              label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
+              tick={{ fontSize: 10 }}
+            />
             <Tooltip />
             <Legend />
             {metrics.map((metric, index) => (
@@ -337,8 +385,10 @@ function AthleteDetail() {
                 type="monotone"
                 dataKey={metric}
                 stroke={COLORS[index % COLORS.length]}
+                strokeWidth={2}
                 name={metric}
-                dot={{ r: 4 }}
+                dot={{ r: 5, strokeWidth: 2 }}
+                activeDot={{ r: 7 }}
                 connectNulls
               />
             ))}
@@ -349,10 +399,22 @@ function AthleteDetail() {
 
     return (
       <ResponsiveContainer width="100%" height={280}>
-        <ScatterChart margin={{ top: 10, right: 20, left: 10, bottom: 25 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="x" type="number" label={{ value: xLabel, position: 'insideBottom', offset: -5, fontSize: 11 }} />
-          <YAxis dataKey="y" type="number" label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }} />
+        <ScatterChart margin={{ top: 15, right: 25, left: 15, bottom: 30 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+          <XAxis
+            dataKey="x"
+            type="number"
+            domain={xDomain}
+            label={{ value: xLabel, position: 'insideBottom', offset: -10, fontSize: 11 }}
+            tick={{ fontSize: 10 }}
+          />
+          <YAxis
+            dataKey="y"
+            type="number"
+            domain={yDomain}
+            label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
+            tick={{ fontSize: 10 }}
+          />
           <Tooltip cursor={{ strokeDasharray: '3 3' }} />
           <Legend />
           {Object.entries(groupedByMetric).map(([metricName, points], index) => (
@@ -361,6 +423,7 @@ function AthleteDetail() {
               name={metricName}
               data={points}
               fill={COLORS[index % COLORS.length]}
+              line={{ stroke: COLORS[index % COLORS.length], strokeWidth: 1.5 }}
             />
           ))}
         </ScatterChart>
@@ -573,6 +636,13 @@ function AthleteDetail() {
                     >
                       Aggiungi Valori
                     </Button>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDefinitionDuplicate(def.id)}
+                      title="Duplica metrica"
+                    >
+                      <ContentCopyIcon fontSize="small" />
+                    </IconButton>
                     <IconButton
                       size="small"
                       onClick={() => {
