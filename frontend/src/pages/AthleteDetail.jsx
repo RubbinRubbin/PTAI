@@ -79,6 +79,7 @@ function AthleteDetail() {
   // Chart settings
   const [chartType, setChartType] = useState('scatter')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [metricColors, setMetricColors] = useState({})
 
   // Comparison mode
   const [compareMode, setCompareMode] = useState(false)
@@ -236,11 +237,38 @@ function AthleteDetail() {
     return [min - padding, max + padding]
   }
 
+  // Get color for a specific metric
+  const getMetricColor = (defId, fallbackIndex) => {
+    return metricColors[defId] || COLORS[fallbackIndex % COLORS.length]
+  }
+
+  // Custom tooltip component
+  const CustomTooltip = ({ active, payload, definition }) => {
+    if (active && payload && payload.length) {
+      const point = payload[0].payload
+      return (
+        <Paper sx={{ p: 1.5, boxShadow: 3 }}>
+          <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+            {definition.nome}
+          </Typography>
+          <Typography variant="body2">
+            {definition.asse_x_nome}: <strong>{point.x}</strong> {definition.asse_x_unita}
+          </Typography>
+          <Typography variant="body2">
+            {definition.asse_y_nome}: <strong>{point.y}</strong> {definition.asse_y_unita}
+          </Typography>
+        </Paper>
+      )
+    }
+    return null
+  }
+
   // Render a single chart for a specific metric
   const renderSingleChart = (definition, colorIndex = 0) => {
     const data = prepareChartDataForMetric(definition)
     const xLabel = `${definition.asse_x_nome} (${definition.asse_x_unita})`
     const yLabel = `${definition.asse_y_nome} (${definition.asse_y_unita})`
+    const chartColor = getMetricColor(definition.id, colorIndex)
 
     if (data.length === 0) {
       return (
@@ -254,6 +282,8 @@ function AthleteDetail() {
 
     const xDomain = calculateDomain(data, 'x')
     const yDomain = calculateDomain(data, 'y')
+    const xTicks = [...new Set(data.map(d => d.x))].sort((a, b) => a - b)
+    const yTicks = [...new Set(data.map(d => d.y))].sort((a, b) => a - b)
 
     if (chartType === 'line') {
       return (
@@ -264,24 +294,26 @@ function AthleteDetail() {
               dataKey="x"
               type="number"
               domain={xDomain}
+              ticks={xTicks}
               label={{ value: xLabel, position: 'insideBottom', offset: -10, fontSize: 11 }}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 9 }}
             />
             <YAxis
               dataKey="y"
               domain={yDomain}
+              ticks={yTicks}
               label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 9 }}
             />
-            <Tooltip formatter={(value, name) => [value, name === 'y' ? definition.asse_y_nome : definition.asse_x_nome]} />
+            <Tooltip content={<CustomTooltip definition={definition} />} />
             <Line
               type="monotone"
               dataKey="y"
-              stroke={COLORS[colorIndex % COLORS.length]}
+              stroke={chartColor}
               strokeWidth={2}
               name={definition.asse_y_nome}
-              dot={{ r: 5, strokeWidth: 2 }}
-              activeDot={{ r: 7 }}
+              dot={{ r: 3, strokeWidth: 1 }}
+              activeDot={{ r: 5 }}
               connectNulls
             />
           </LineChart>
@@ -298,27 +330,25 @@ function AthleteDetail() {
             dataKey="x"
             type="number"
             domain={xDomain}
+            ticks={xTicks}
             name={definition.asse_x_nome}
             label={{ value: xLabel, position: 'insideBottom', offset: -10, fontSize: 11 }}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 9 }}
           />
           <YAxis
             dataKey="y"
             type="number"
             domain={yDomain}
+            ticks={yTicks}
             name={definition.asse_y_nome}
             label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 9 }}
           />
-          <Tooltip
-            cursor={{ strokeDasharray: '3 3' }}
-            formatter={(value, name) => [value, name === 'y' ? definition.asse_y_nome : definition.asse_x_nome]}
-          />
+          <Tooltip content={<CustomTooltip definition={definition} />} />
           <Scatter
             name={definition.nome}
             data={data}
-            fill={COLORS[colorIndex % COLORS.length]}
-            line={{ stroke: COLORS[colorIndex % COLORS.length], strokeWidth: 1.5 }}
+            fill={chartColor}
           />
         </ScatterChart>
       </ResponsiveContainer>
@@ -344,6 +374,8 @@ function AthleteDetail() {
     const yLabel = `${defsToCompare[0].asse_y_nome} (${defsToCompare[0].asse_y_unita})`
     const xDomain = calculateDomain(data, 'x')
     const yDomain = calculateDomain(data, 'y')
+    const xTicks = [...new Set(data.map(d => d.x))].sort((a, b) => a - b)
+    const yTicks = [...new Set(data.map(d => d.y))].sort((a, b) => a - b)
 
     // Group by metric
     const groupedByMetric = {}
@@ -369,29 +401,35 @@ function AthleteDetail() {
             <XAxis
               dataKey="x"
               domain={xDomain}
+              ticks={xTicks}
               label={{ value: xLabel, position: 'insideBottom', offset: -10, fontSize: 11 }}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 9 }}
             />
             <YAxis
               domain={yDomain}
+              ticks={yTicks}
               label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 9 }}
             />
             <Tooltip />
             <Legend />
-            {metrics.map((metric, index) => (
-              <Line
-                key={metric}
-                type="monotone"
-                dataKey={metric}
-                stroke={COLORS[index % COLORS.length]}
-                strokeWidth={2}
-                name={metric}
-                dot={{ r: 5, strokeWidth: 2 }}
-                activeDot={{ r: 7 }}
-                connectNulls
-              />
-            ))}
+            {metrics.map((metric, index) => {
+              const def = defsToCompare.find(d => d.nome === metric)
+              const color = def ? getMetricColor(def.id, index) : COLORS[index % COLORS.length]
+              return (
+                <Line
+                  key={metric}
+                  type="monotone"
+                  dataKey={metric}
+                  stroke={color}
+                  strokeWidth={2}
+                  name={metric}
+                  dot={{ r: 3, strokeWidth: 1 }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
+                />
+              )
+            })}
           </LineChart>
         </ResponsiveContainer>
       )
@@ -405,27 +443,32 @@ function AthleteDetail() {
             dataKey="x"
             type="number"
             domain={xDomain}
+            ticks={xTicks}
             label={{ value: xLabel, position: 'insideBottom', offset: -10, fontSize: 11 }}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 9 }}
           />
           <YAxis
             dataKey="y"
             type="number"
             domain={yDomain}
+            ticks={yTicks}
             label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11 }}
-            tick={{ fontSize: 10 }}
+            tick={{ fontSize: 9 }}
           />
           <Tooltip cursor={{ strokeDasharray: '3 3' }} />
           <Legend />
-          {Object.entries(groupedByMetric).map(([metricName, points], index) => (
-            <Scatter
-              key={metricName}
-              name={metricName}
-              data={points}
-              fill={COLORS[index % COLORS.length]}
-              line={{ stroke: COLORS[index % COLORS.length], strokeWidth: 1.5 }}
-            />
-          ))}
+          {Object.entries(groupedByMetric).map(([metricName, points], index) => {
+            const def = defsToCompare.find(d => d.nome === metricName)
+            const color = def ? getMetricColor(def.id, index) : COLORS[index % COLORS.length]
+            return (
+              <Scatter
+                key={metricName}
+                name={metricName}
+                data={points}
+                fill={color}
+              />
+            )
+          })}
         </ScatterChart>
       </ResponsiveContainer>
     )
@@ -555,116 +598,124 @@ function AthleteDetail() {
           </Box>
         )}
 
-        {/* Charts Section */}
-        <Box sx={{ mb: 4 }}>
-          {compareMode && selectedForCompare.length > 0 ? (
-            /* Comparison Mode - Single combined chart */
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Comparazione Metriche
-              </Typography>
-              {renderComparisonChart()}
-            </Box>
-          ) : (
-            /* Normal Mode - Separate chart for each metric */
-            definitions.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 6, bgcolor: 'grey.50', borderRadius: 2 }}>
+        {/* Main Content: Metrics Left, Charts Right */}
+        <Grid container spacing={3}>
+          {/* Left Column - Metrics */}
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6" gutterBottom>
+              Metriche ({definitions.length})
+            </Typography>
+
+            {definitions.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 4, bgcolor: 'grey.50', borderRadius: 2 }}>
                 <Typography color="text.secondary">
-                  Crea una metrica e aggiungi valori per visualizzare i grafici
+                  Nessuna metrica creata. Crea la prima!
                 </Typography>
               </Box>
             ) : (
-              <Grid container spacing={2}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {definitions.map((def, index) => (
-                  <Grid item xs={12} md={6} key={def.id}>
-                    <Paper sx={{ p: 2 }} variant="outlined">
+                  <Card key={def.id} sx={{ borderLeft: `4px solid ${getMetricColor(def.id, index)}` }}>
+                    <CardContent sx={{ pb: 1 }}>
                       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
                         {def.nome}
                       </Typography>
-                      {renderSingleChart(def, index)}
-                    </Paper>
-                  </Grid>
+                      <Box sx={{ mb: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          X: {def.asse_x_nome} ({def.asse_x_unita})
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Y: {def.asse_y_nome} ({def.asse_y_unita})
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={`${def.values.length} valori`}
+                        size="small"
+                        color={def.values.length > 0 ? 'success' : 'default'}
+                      />
+                    </CardContent>
+                    <CardActions sx={{ pt: 0 }}>
+                      <Button
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => {
+                          setSelectedDefinitionForValues(def)
+                          setValuesFormOpen(true)
+                        }}
+                      >
+                        Valori
+                      </Button>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDefinitionDuplicate(def.id)}
+                        title="Duplica"
+                      >
+                        <ContentCopyIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setEditingDefinition(def)
+                          setDefinitionFormOpen(true)
+                        }}
+                        title="Modifica"
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDefinitionDelete(def.id)}
+                        title="Elimina"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </CardActions>
+                  </Card>
                 ))}
-              </Grid>
-            )
-          )}
-        </Box>
-
-        {/* Metrics Cards */}
-        <Typography variant="h6" gutterBottom>
-          Metriche ({definitions.length})
-        </Typography>
-
-        {definitions.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4, bgcolor: 'grey.50', borderRadius: 2 }}>
-            <Typography color="text.secondary">
-              Nessuna metrica creata. Crea la prima!
-            </Typography>
-          </Box>
-        ) : (
-          <Grid container spacing={2}>
-            {definitions.map((def) => (
-              <Grid item xs={12} md={6} lg={4} key={def.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      {def.nome}
-                    </Typography>
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="body2" color="primary">
-                        <strong>Asse X:</strong> {def.asse_x_nome} ({def.asse_x_unita})
-                      </Typography>
-                      <Typography variant="body2" color="secondary">
-                        <strong>Asse Y:</strong> {def.asse_y_nome} ({def.asse_y_unita})
-                      </Typography>
-                    </Box>
-                    <Chip
-                      icon={<TimelineIcon />}
-                      label={`${def.values.length} valori`}
-                      size="small"
-                      color={def.values.length > 0 ? 'success' : 'default'}
-                    />
-                  </CardContent>
-                  <CardActions>
-                    <Button
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={() => {
-                        setSelectedDefinitionForValues(def)
-                        setValuesFormOpen(true)
-                      }}
-                    >
-                      Aggiungi Valori
-                    </Button>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDefinitionDuplicate(def.id)}
-                      title="Duplica metrica"
-                    >
-                      <ContentCopyIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setEditingDefinition(def)
-                        setDefinitionFormOpen(true)
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDefinitionDelete(def.id)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
+              </Box>
+            )}
           </Grid>
-        )}
+
+          {/* Right Column - Charts */}
+          <Grid item xs={12} md={8}>
+            <Typography variant="h6" gutterBottom>
+              Grafici
+            </Typography>
+
+            {compareMode && selectedForCompare.length > 0 ? (
+              /* Comparison Mode - Single combined chart */
+              <Paper sx={{ p: 2 }} variant="outlined">
+                <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                  Comparazione Metriche
+                </Typography>
+                {renderComparisonChart()}
+              </Paper>
+            ) : (
+              /* Normal Mode - Separate chart for each metric */
+              definitions.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6, bgcolor: 'grey.50', borderRadius: 2 }}>
+                  <Typography color="text.secondary">
+                    Crea una metrica e aggiungi valori per visualizzare i grafici
+                  </Typography>
+                </Box>
+              ) : (
+                <Grid container spacing={2}>
+                  {definitions.map((def, index) => (
+                    <Grid item xs={12} lg={6} key={def.id}>
+                      <Paper sx={{ p: 2, borderTop: `3px solid ${getMetricColor(def.id, index)}` }} variant="outlined">
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                          {def.nome}
+                        </Typography>
+                        {renderSingleChart(def, index)}
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              )
+            )}
+          </Grid>
+        </Grid>
       </Paper>
 
       {/* Definition Form Dialog */}
@@ -690,10 +741,10 @@ function AthleteDetail() {
       />
 
       {/* Chart Settings Dialog */}
-      <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Impostazioni Grafico</DialogTitle>
         <DialogContent>
-          <FormControl fullWidth sx={{ mt: 2 }}>
+          <FormControl fullWidth sx={{ mt: 2, mb: 3 }}>
             <InputLabel>Tipo di grafico</InputLabel>
             <Select
               value={chartType}
@@ -704,6 +755,35 @@ function AthleteDetail() {
               <MenuItem value="line">Linee</MenuItem>
             </Select>
           </FormControl>
+
+          {definitions.length > 0 && (
+            <>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Colori Metriche
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {definitions.map((def, index) => (
+                  <Box key={def.id} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {def.nome}
+                    </Typography>
+                    <input
+                      type="color"
+                      value={metricColors[def.id] || COLORS[index % COLORS.length]}
+                      onChange={(e) => setMetricColors(prev => ({ ...prev, [def.id]: e.target.value }))}
+                      style={{
+                        width: 40,
+                        height: 30,
+                        border: '1px solid #ccc',
+                        borderRadius: 4,
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSettingsOpen(false)}>Chiudi</Button>
