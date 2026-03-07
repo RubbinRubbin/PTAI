@@ -26,7 +26,8 @@ def create_metric_definition(athlete_id):
         asse_x_nome=data['asse_x_nome'],
         asse_x_unita=data['asse_x_unita'],
         asse_y_nome=data['asse_y_nome'],
-        asse_y_unita=data['asse_y_unita']
+        asse_y_unita=data['asse_y_unita'],
+        note=data.get('note')
     )
 
     db.session.add(definition)
@@ -45,6 +46,7 @@ def update_metric_definition(id):
     definition.asse_x_unita = data.get('asse_x_unita', definition.asse_x_unita)
     definition.asse_y_nome = data.get('asse_y_nome', definition.asse_y_nome)
     definition.asse_y_unita = data.get('asse_y_unita', definition.asse_y_unita)
+    definition.note = data.get('note', definition.note)
 
     db.session.commit()
 
@@ -71,7 +73,8 @@ def duplicate_metric_definition(id):
         asse_x_nome=original.asse_x_nome,
         asse_x_unita=original.asse_x_unita,
         asse_y_nome=original.asse_y_nome,
-        asse_y_unita=original.asse_y_unita
+        asse_y_unita=original.asse_y_unita,
+        note=original.note
     )
 
     db.session.add(new_definition)

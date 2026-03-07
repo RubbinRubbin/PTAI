@@ -13,6 +13,7 @@ import {
 
 const emptyDefinition = {
   nome: '',
+  note: '',
   asse_x_nome: '',
   asse_x_unita: '',
   asse_y_nome: '',
@@ -27,6 +28,7 @@ function MetricDefinitionForm({ open, onClose, onSubmit, definition }) {
     if (definition) {
       setFormData({
         nome: definition.nome || '',
+        note: definition.note || '',
         asse_x_nome: definition.asse_x_nome || '',
         asse_x_unita: definition.asse_x_unita || '',
         asse_y_nome: definition.asse_y_nome || '',
@@ -79,6 +81,20 @@ function MetricDefinitionForm({ open, onClose, onSubmit, definition }) {
               helperText={errors.nome || 'Es: "Progressione Squat"'}
               fullWidth
               required
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              name="note"
+              label="Note / Descrizione"
+              value={formData.note}
+              onChange={handleChange}
+              helperText="Descrizione opzionale della metrica"
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={4}
             />
           </Grid>
 

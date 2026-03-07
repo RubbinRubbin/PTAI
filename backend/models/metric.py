@@ -13,6 +13,7 @@ class MetricDefinition(db.Model):
     asse_x_unita = db.Column(db.String(50), nullable=False)  # Unità asse X (es. "settimana")
     asse_y_nome = db.Column(db.String(100), nullable=False)  # Nome asse Y (es. "Peso")
     asse_y_unita = db.Column(db.String(50), nullable=False)  # Unità asse Y (es. "kg")
+    note = db.Column(db.Text, nullable=True)  # Note/descrizione della metrica
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationship con i valori
@@ -27,6 +28,7 @@ class MetricDefinition(db.Model):
             'asse_x_unita': self.asse_x_unita,
             'asse_y_nome': self.asse_y_nome,
             'asse_y_unita': self.asse_y_unita,
+            'note': self.note,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'values': [v.to_dict() for v in self.values]
         }
