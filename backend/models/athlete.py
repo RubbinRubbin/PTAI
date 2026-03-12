@@ -14,6 +14,7 @@ class Athlete(db.Model):
     peso = db.Column(db.Float, nullable=True)  # kg
     data_nascita = db.Column(db.Date, nullable=True)
     note = db.Column(db.Text, nullable=True)
+    pagato = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -33,6 +34,7 @@ class Athlete(db.Model):
             'peso': self.peso,
             'data_nascita': self.data_nascita.isoformat() if self.data_nascita else None,
             'note': self.note,
+            'pagato': self.pagato,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }

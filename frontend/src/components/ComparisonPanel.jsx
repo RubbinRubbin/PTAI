@@ -1,31 +1,50 @@
 import { Box, Paper, Typography, Chip, Collapse } from '@mui/material'
 import {
-  LineChart,
+  ComposedChart,
   Line,
-  ScatterChart,
-  Scatter,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Area,
-  AreaChart,
 } from 'recharts'
 import { COLORS } from './MetricsToolbar'
-import { calculateDomain } from './MetricChartRenderer'
 
 function ComparisonPanel({
   definitions,
   selectedIds,
   onToggleSelection,
-  chartType,
   metricColors,
 }) {
   const getColor = (defId, index) => metricColors[defId] || COLORS[index % COLORS.length]
 
   const defsToCompare = definitions.filter(d => selectedIds.includes(d.id))
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload || payload.length === 0) return null
+    return (
+      <Paper sx={{
+        p: 1.5,
+        borderRadius: 2,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        border: '1px solid #e2e8f0',
+      }}>
+        {payload.map((entry, i) => {
+          const origX = entry.payload[`${entry.name}_origX`]
+          const origY = entry.payload[`${entry.name}_origY`]
+          const def = defsToCompare.find(d => d.nome === entry.name)
+          const unitX = def ? def.asse_x_unita : ''
+          const unitY = def ? def.asse_y_unita : ''
+          return (
+            <Typography key={i} variant="body2" sx={{ color: entry.color, fontWeight: 600 }}>
+              {entry.name}: {origX}{unitX} / {origY}{unitY}
+            </Typography>
+          )
+        })}
+      </Paper>
+    )
+  }
 
   const renderChart = () => {
     if (defsToCompare.length === 0) {
@@ -38,19 +57,8 @@ function ComparisonPanel({
       )
     }
 
-    // Collect all data points
-    const allData = []
-    defsToCompare.forEach((def, index) => {
-      (def.values || []).forEach(val => {
-        allData.push({
-          x: val.valore_x,
-          y: val.valore_y,
-          metric: def.nome,
-        })
-      })
-    })
-
-    if (allData.length === 0) {
+    const hasData = defsToCompare.some(d => (d.values || []).length > 0)
+    if (!hasData) {
       return (
         <Box sx={{ textAlign: 'center', py: 4 }}>
           <Typography color="text.secondary">
@@ -60,168 +68,127 @@ function ComparisonPanel({
       )
     }
 
-    // Calculate unified domain across ALL selected metrics
-    const xDomain = calculateDomain(allData, 'x')
-    const yDomain = calculateDomain(allData, 'y')
+    // For each metric, normalize both X and Y to 0-1 range
+    // Then merge all into a single dataset indexed by normalized position (0 to 100 steps)
+    const STEPS = 100
 
-    const axisStyle = { fontSize: 11, fill: '#94a3b8' }
-    const axisLineStyle = { stroke: '#cbd5e1' }
+    // Build normalized points per metric
+    const metricNormalized = {}
+    defsToCompare.forEach(def => {
+      const vals = (def.values || []).slice().sort((a, b) => a.valore_x - b.valore_x)
+      if (vals.length === 0) return
 
-    // Build axis labels - combine if different
-    const xLabels = [...new Set(defsToCompare.map(d => `${d.asse_x_nome} (${d.asse_x_unita})`))]
-    const yLabels = [...new Set(defsToCompare.map(d => `${d.asse_y_nome} (${d.asse_y_unita})`))]
-    const xLabel = xLabels.join(' / ')
-    const yLabel = yLabels.join(' / ')
+      const xMin = vals[0].valore_x
+      const xMax = vals[vals.length - 1].valore_x
+      const xRange = xMax - xMin || 1
 
-    // Calculate chart height based on number of metrics (min 350, max 500)
-    const chartHeight = Math.min(500, Math.max(350, 300 + defsToCompare.length * 25))
+      const yValues = vals.map(v => v.valore_y)
+      const yMin = Math.min(...yValues)
+      const yMax = Math.max(...yValues)
+      const yRange = yMax - yMin || 1
 
-    if (chartType === 'line') {
-      // Group data by x value, with each metric as a separate key
-      const groupedData = {}
-      allData.forEach(point => {
-        if (!groupedData[point.x]) groupedData[point.x] = { x: point.x }
-        groupedData[point.x][point.metric] = point.y
+      // Create normalized points
+      metricNormalized[def.nome] = vals.map(v => ({
+        nx: (v.valore_x - xMin) / xRange,
+        ny: (v.valore_y - yMin) / yRange,
+        origX: v.valore_x,
+        origY: v.valore_y,
+      }))
+    })
+
+    // Build chart data: sample at regular intervals using linear interpolation
+    const chartData = []
+    for (let i = 0; i <= STEPS; i++) {
+      const t = i / STEPS
+      const point = { t: Math.round(t * 100) }
+
+      defsToCompare.forEach(def => {
+        const pts = metricNormalized[def.nome]
+        if (!pts || pts.length === 0) return
+
+        // Find the two surrounding points for interpolation
+        let before = null
+        let after = null
+        for (let j = 0; j < pts.length; j++) {
+          if (pts[j].nx <= t) before = pts[j]
+          if (pts[j].nx >= t && after === null) after = pts[j]
+        }
+
+        if (before && after) {
+          const segRange = after.nx - before.nx
+          const ratio = segRange === 0 ? 0 : (t - before.nx) / segRange
+          point[def.nome] = Math.round((before.ny + ratio * (after.ny - before.ny)) * 1000) / 1000
+          // Store original values of nearest point for tooltip
+          const nearest = Math.abs(t - before.nx) <= Math.abs(t - after.nx) ? before : after
+          point[`${def.nome}_origX`] = nearest.origX
+          point[`${def.nome}_origY`] = nearest.origY
+        } else if (before) {
+          point[def.nome] = before.ny
+          point[`${def.nome}_origX`] = before.origX
+          point[`${def.nome}_origY`] = before.origY
+        } else if (after) {
+          point[def.nome] = after.ny
+          point[`${def.nome}_origX`] = after.origX
+          point[`${def.nome}_origY`] = after.origY
+        }
       })
-      const lineData = Object.values(groupedData).sort((a, b) => a.x - b.x)
-      const metrics = [...new Set(allData.map(d => d.metric))]
 
-      return (
-        <ResponsiveContainer width="100%" height={chartHeight}>
-          <LineChart data={lineData} margin={{ top: 15, right: 30, left: 20, bottom: 35 }}>
-            <defs>
-              {metrics.map((metric, index) => {
-                const def = defsToCompare.find(d => d.nome === metric)
-                const color = def ? getColor(def.id, index) : COLORS[index % COLORS.length]
-                return (
-                  <linearGradient key={metric} id={`compare-grad-${index}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={color} stopOpacity={0.08} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0} />
-                  </linearGradient>
-                )
-              })}
-            </defs>
-            <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.5} />
-            <XAxis
-              dataKey="x"
-              type="number"
-              domain={xDomain}
-              label={{ value: xLabel, position: 'insideBottom', offset: -15, fontSize: 11, fill: '#64748b' }}
-              tick={axisStyle}
-              axisLine={axisLineStyle}
-              tickLine={{ stroke: '#cbd5e1' }}
-            />
-            <YAxis
-              domain={yDomain}
-              label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: '#64748b' }}
-              tick={axisStyle}
-              axisLine={axisLineStyle}
-              tickLine={{ stroke: '#cbd5e1' }}
-            />
-            <Tooltip
-              contentStyle={{
-                borderRadius: 8,
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              }}
-            />
-            <Legend
-              wrapperStyle={{ paddingTop: 10 }}
-              iconType="circle"
-              iconSize={8}
-            />
-            {metrics.map((metric, index) => {
-              const def = defsToCompare.find(d => d.nome === metric)
-              const color = def ? getColor(def.id, index) : COLORS[index % COLORS.length]
-              return (
-                <Line
-                  key={metric}
-                  type="monotone"
-                  dataKey={metric}
-                  stroke={color}
-                  strokeWidth={2.5}
-                  name={metric}
-                  dot={{ r: 4, fill: 'white', stroke: color, strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: color, stroke: 'white', strokeWidth: 2 }}
-                  connectNulls
-                  animationDuration={800}
-                  animationEasing="ease-out"
-                />
-              )
-            })}
-          </LineChart>
-        </ResponsiveContainer>
-      )
+      chartData.push(point)
     }
 
-    // Scatter comparison
-    const groupedByMetric = {}
-    allData.forEach(point => {
-      if (!groupedByMetric[point.metric]) groupedByMetric[point.metric] = []
-      groupedByMetric[point.metric].push(point)
-    })
+    const chartHeight = Math.min(500, Math.max(350, 300 + defsToCompare.length * 25))
 
     return (
       <ResponsiveContainer width="100%" height={chartHeight}>
-        <ScatterChart margin={{ top: 15, right: 30, left: 20, bottom: 35 }}>
+        <ComposedChart data={chartData} margin={{ top: 15, right: 30, left: 10, bottom: 15 }}>
           <CartesianGrid stroke="#e2e8f0" strokeOpacity={0.5} />
           <XAxis
-            dataKey="x"
+            dataKey="t"
             type="number"
-            domain={xDomain}
-            label={{ value: xLabel, position: 'insideBottom', offset: -15, fontSize: 11, fill: '#64748b' }}
-            tick={axisStyle}
-            axisLine={axisLineStyle}
-            tickLine={{ stroke: '#cbd5e1' }}
+            domain={[0, 100]}
+            tick={false}
+            axisLine={false}
+            tickLine={false}
+            height={5}
           />
           <YAxis
-            dataKey="y"
-            type="number"
-            domain={yDomain}
-            label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: '#64748b' }}
-            tick={axisStyle}
-            axisLine={axisLineStyle}
-            tickLine={{ stroke: '#cbd5e1' }}
+            domain={[0, 1]}
+            tick={false}
+            axisLine={false}
+            tickLine={false}
+            width={5}
           />
-          <Tooltip
-            cursor={{ strokeDasharray: '3 3' }}
-            contentStyle={{
-              borderRadius: 8,
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            }}
-          />
+          <Tooltip content={<CustomTooltip />} />
           <Legend
             wrapperStyle={{ paddingTop: 10 }}
             iconType="circle"
             iconSize={8}
           />
-          {Object.entries(groupedByMetric).map(([metricName, points], index) => {
-            const def = defsToCompare.find(d => d.nome === metricName)
-            const color = def ? getColor(def.id, index) : COLORS[index % COLORS.length]
+          {defsToCompare.map((def, index) => {
+            const color = getColor(def.id, index)
             return (
-              <Scatter
-                key={metricName}
-                name={metricName}
-                data={points}
-                fill={color}
-                shape={(props) => {
-                  const { cx, cy } = props
-                  return <circle cx={cx} cy={cy} r={5} fill="white" stroke={color} strokeWidth={2} />
-                }}
+              <Line
+                key={def.id}
+                type="monotone"
+                dataKey={def.nome}
+                stroke={color}
+                strokeWidth={2.5}
+                name={def.nome}
+                dot={false}
+                activeDot={{ r: 5, fill: color, stroke: 'white', strokeWidth: 2 }}
+                connectNulls
                 animationDuration={800}
                 animationEasing="ease-out"
               />
             )
           })}
-        </ScatterChart>
+        </ComposedChart>
       </ResponsiveContainer>
     )
   }
 
   return (
     <Box sx={{ mb: 3 }}>
-      {/* Chip selector */}
       <Box sx={{
         mb: 2,
         p: 2,
@@ -231,7 +198,7 @@ function ComparisonPanel({
         borderColor: 'grey.200',
       }}>
         <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-          Seleziona le metriche da comparare:
+          Seleziona le metriche da sovrapporre:
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {definitions.map((def, index) => (
@@ -255,17 +222,19 @@ function ComparisonPanel({
         </Box>
       </Box>
 
-      {/* Comparison chart - show with 1+ selected metrics */}
       <Collapse in={selectedIds.length >= 1}>
         <Paper sx={{
           p: 2,
           borderRadius: 3,
           boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
         }}>
-          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
             {defsToCompare.length === 1
               ? defsToCompare[0].nome
-              : `Comparazione ${defsToCompare.length} Metriche`}
+              : `Sovrapposizione ${defsToCompare.length} Metriche`}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+            Curve normalizzate per confrontare le pendenze. Passa il mouse per i valori reali.
           </Typography>
           {renderChart()}
         </Paper>

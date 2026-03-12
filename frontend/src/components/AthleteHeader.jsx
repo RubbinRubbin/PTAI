@@ -44,7 +44,7 @@ function AthleteHeader({ athlete, onBack, onExport }) {
               color="success"
               sx={{ borderRadius: 2 }}
             >
-              Esporta Excel
+              Esporta Backup
             </Button>
           </Grid>
         </Grid>

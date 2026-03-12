@@ -25,6 +25,10 @@ export const exportAthlete = (id) => {
   return api.get(`/athletes/${id}/export`, { responseType: 'blob' })
 }
 
+export const exportMultipleAthletes = (ids) => {
+  return api.post('/athletes/export', { athlete_ids: ids }, { responseType: 'blob' })
+}
+
 // ============ METRIC DEFINITIONS ============
 
 export const getMetricDefinitions = (athleteId) => api.get(`/athletes/${athleteId}/metrics`)

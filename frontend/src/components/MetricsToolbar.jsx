@@ -57,7 +57,7 @@ function MetricsToolbar({
         disabled={definitionsCount < 2}
         sx={{ borderRadius: 2 }}
       >
-        {compareMode ? 'Esci Comparazione' : 'Compara'}
+        {compareMode ? 'Esci Sovrapposizione' : 'Sovrapponi'}
       </Button>
 
       <Box sx={{ flex: 1 }} />

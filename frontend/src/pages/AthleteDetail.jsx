@@ -182,7 +182,7 @@ function AthleteDetail() {
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `${athlete.cognome}_${athlete.nome}_profilo.xlsx`)
+      link.setAttribute('download', `${athlete.cognome}_${athlete.nome}_backup.json`)
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -253,7 +253,6 @@ function AthleteDetail() {
           definitions={definitions}
           selectedIds={selectedForCompare}
           onToggleSelection={toggleCompareSelection}
-          chartType={chartType}
           metricColors={metricColors}
         />
       )}

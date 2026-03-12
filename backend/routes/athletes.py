@@ -3,8 +3,9 @@ from datetime import datetime
 from . import api
 from database import db
 from models import Athlete
-from services.excel_export import export_athlete_to_excel
+from services.export_service import export_athlete_to_json, export_multiple_athletes_to_json
 import io
+import json
 
 @api.route('/athletes', methods=['GET'])
 def get_athletes():
@@ -29,7 +30,8 @@ def create_athlete():
         altezza=data.get('altezza'),
         peso=data.get('peso'),
         data_nascita=datetime.fromisoformat(data['data_nascita']) if data.get('data_nascita') else None,
-        note=data.get('note')
+        note=data.get('note'),
+        pagato=data.get('pagato', False)
     )
 
     db.session.add(athlete)
@@ -50,6 +52,7 @@ def update_athlete(id):
     athlete.altezza = data.get('altezza', athlete.altezza)
     athlete.peso = data.get('peso', athlete.peso)
     athlete.note = data.get('note', athlete.note)
+    athlete.pagato = data.get('pagato', athlete.pagato)
 
     if data.get('data_nascita'):
         athlete.data_nascita = datetime.fromisoformat(data['data_nascita'])
@@ -70,11 +73,34 @@ def delete_athlete(id):
 def export_athlete(id):
     athlete = Athlete.query.get_or_404(id)
 
-    excel_buffer = export_athlete_to_excel(athlete)
+    data = export_athlete_to_json(athlete)
+    json_str = json.dumps(data, ensure_ascii=False, indent=2)
+    buffer = io.BytesIO(json_str.encode('utf-8'))
+    buffer.seek(0)
 
     return send_file(
-        excel_buffer,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        buffer,
+        mimetype='application/json',
         as_attachment=True,
-        download_name=f'{athlete.cognome}_{athlete.nome}_profilo.xlsx'
+        download_name=f'{athlete.cognome}_{athlete.nome}_backup.json'
+    )
+
+@api.route('/athletes/export', methods=['POST'])
+def export_multiple_athletes():
+    data = request.get_json()
+    athlete_ids = data.get('athlete_ids', [])
+
+    athletes = Athlete.query.filter(Athlete.id.in_(athlete_ids)).all()
+
+    export_data = export_multiple_athletes_to_json(athletes)
+    json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
+    buffer = io.BytesIO(json_str.encode('utf-8'))
+    buffer.seek(0)
+
+    today = datetime.now().strftime('%Y%m%d')
+    return send_file(
+        buffer,
+        mimetype='application/json',
+        as_attachment=True,
+        download_name=f'atleti_backup_{today}.json'
     )

@@ -7,6 +7,9 @@ import {
   TextField,
   Button,
   Grid,
+  FormControlLabel,
+  Switch,
+  Box,
 } from '@mui/material'
 
 const emptyAthlete = {
@@ -19,6 +22,7 @@ const emptyAthlete = {
   peso: '',
   data_nascita: '',
   note: '',
+  pagato: false,
 }
 
 function AthleteForm({ open, onClose, onSubmit, athlete }) {
@@ -34,6 +38,7 @@ function AthleteForm({ open, onClose, onSubmit, athlete }) {
         altezza: athlete.altezza?.toString() || '',
         peso: athlete.peso?.toString() || '',
         data_nascita: athlete.data_nascita || '',
+        pagato: athlete.pagato || false,
       })
     } else {
       setFormData(emptyAthlete)
@@ -150,6 +155,41 @@ function AthleteForm({ open, onClose, onSubmit, athlete }) {
               onChange={handleChange}
               fullWidth
             />
+          </Grid>
+          <Grid item xs={12}>
+            <Box sx={{
+              p: 2,
+              borderRadius: 2,
+              border: '2px solid',
+              borderColor: formData.pagato ? '#4caf50' : '#f44336',
+              bgcolor: formData.pagato ? 'rgba(76, 175, 80, 0.05)' : 'rgba(244, 67, 54, 0.05)',
+              transition: 'all 0.3s ease',
+            }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.pagato}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, pagato: e.target.checked }))}
+                    sx={{
+                      '& .MuiSwitch-switchBase.Mui-checked': {
+                        color: '#4caf50',
+                      },
+                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                        backgroundColor: '#4caf50',
+                      },
+                    }}
+                  />
+                }
+                label={formData.pagato ? 'Pagamento effettuato' : 'Pagamento non effettuato'}
+                sx={{
+                  m: 0,
+                  '& .MuiFormControlLabel-label': {
+                    fontWeight: 600,
+                    color: formData.pagato ? '#4caf50' : '#f44336',
+                  },
+                }}
+              />
+            </Box>
           </Grid>
           <Grid item xs={12}>
             <TextField
