@@ -36,6 +36,9 @@ Thumbs.db
 # Build
 frontend/dist/
 electron/dist/
+backend_dist/
+backend/build/
+backend/*.spec
 
 # Env
 .env

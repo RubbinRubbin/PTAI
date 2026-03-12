@@ -1,8 +1,14 @@
 import os
 import sys
 
+# When running as PyInstaller exe, use the exe's directory
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Add backend directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
 
 from flask import Flask
 from flask_cors import CORS
@@ -13,11 +19,11 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Enable CORS for frontend
-    CORS(app, origins=['http://localhost:5173', 'http://127.0.0.1:5173'])
+    # Enable CORS for frontend (dev + Electron production)
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 
     # Ensure data directory exists
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+    data_dir = os.path.join(BASE_DIR, 'data')
     os.makedirs(data_dir, exist_ok=True)
 
     # Import models before initializing database
@@ -38,4 +44,5 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5000)
+    is_production = getattr(sys, 'frozen', False) or os.environ.get('FLASK_ENV') == 'production'
+    app.run(debug=not is_production, port=5000, use_reloader=not is_production)

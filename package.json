@@ -12,8 +12,11 @@
     "dev:frontend": "cd frontend && npm run dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && python build_exe.py",
+    "build:all": "npm run build:frontend && npm run build:backend",
     "electron:dev": "cd electron && npm run start:dev",
     "electron:start": "cd electron && npm start",
+    "electron:dist": "npm run build:all && cd electron && npm run dist",
     "start": "npm run dev"
   },
   "devDependencies": {

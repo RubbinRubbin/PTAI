@@ -1,6 +1,7 @@
 const { app, BrowserWindow } = require('electron')
 const path = require('path')
-const { spawn } = require('child_process')
+const { spawn, execFile } = require('child_process')
+const http = require('http')
 
 let mainWindow
 let backendProcess
@@ -22,13 +23,15 @@ function createWindow() {
     title: 'PTAI - Personal Trainer AI',
   })
 
-  // In development, load from Vite dev server
-  // In production, load from built files
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../frontend/dist/index.html'))
+    // When packaged, files are in resources/frontend/dist
+    const frontendPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'frontend', 'dist', 'index.html')
+      : path.join(__dirname, '..', 'frontend', 'dist', 'index.html')
+    mainWindow.loadFile(frontendPath)
   }
 
   mainWindow.on('closed', () => {
@@ -36,21 +39,62 @@ function createWindow() {
   })
 }
 
+function getBackendPath() {
+  if (isDev) {
+    return null // Use python directly in dev
+  }
+
+  // In production (packaged app), look for the PyInstaller exe
+  const possiblePaths = [
+    // When running from electron-builder output
+    path.join(process.resourcesPath, 'backend', 'ptai_backend.exe'),
+    // Fallback: relative to app
+    path.join(__dirname, '..', 'backend_dist', 'ptai_backend', 'ptai_backend.exe'),
+  ]
+
+  for (const p of possiblePaths) {
+    try {
+      require('fs').accessSync(p)
+      return p
+    } catch (e) {
+      continue
+    }
+  }
+
+  return null
+}
+
 function startBackend() {
-  const pythonPath = process.platform === 'win32' ? 'python' : 'python3'
-  const scriptPath = path.join(__dirname, '../backend/app.py')
+  if (isDev) {
+    // Development: use Python directly
+    const pythonPath = process.platform === 'win32' ? 'python' : 'python3'
+    const scriptPath = path.join(__dirname, '..', 'backend', 'app.py')
 
-  backendProcess = spawn(pythonPath, [scriptPath], {
-    cwd: path.join(__dirname, '../backend'),
-    env: { ...process.env, FLASK_ENV: isDev ? 'development' : 'production' },
-  })
+    backendProcess = spawn(pythonPath, [scriptPath], {
+      cwd: path.join(__dirname, '..', 'backend'),
+      env: { ...process.env, FLASK_ENV: 'development' },
+    })
+  } else {
+    // Production: use PyInstaller exe
+    const exePath = getBackendPath()
+    if (!exePath) {
+      console.error('Backend exe not found!')
+      return
+    }
 
-  backendProcess.stdout.on('data', (data) => {
+    const exeDir = path.dirname(exePath)
+    backendProcess = execFile(exePath, [], {
+      cwd: exeDir,
+      env: { ...process.env, FLASK_ENV: 'production' },
+    })
+  }
+
+  backendProcess.stdout?.on('data', (data) => {
     console.log(`Backend: ${data}`)
   })
 
-  backendProcess.stderr.on('data', (data) => {
-    console.error(`Backend Error: ${data}`)
+  backendProcess.stderr?.on('data', (data) => {
+    console.error(`Backend: ${data}`)
   })
 
   backendProcess.on('close', (code) => {
@@ -60,18 +104,57 @@ function startBackend() {
 
 function stopBackend() {
   if (backendProcess) {
-    backendProcess.kill()
+    if (process.platform === 'win32') {
+      // On Windows, kill the process tree
+      spawn('taskkill', ['/pid', backendProcess.pid.toString(), '/f', '/t'])
+    } else {
+      backendProcess.kill()
+    }
     backendProcess = null
   }
 }
 
-app.whenReady().then(() => {
+function waitForBackend(retries = 30) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0
+    const check = () => {
+      const req = http.get('http://localhost:5000/health', (res) => {
+        if (res.statusCode === 200) {
+          resolve()
+        } else {
+          retry()
+        }
+      })
+      req.on('error', () => retry())
+      req.setTimeout(1000, () => {
+        req.destroy()
+        retry()
+      })
+    }
+
+    const retry = () => {
+      attempts++
+      if (attempts >= retries) {
+        reject(new Error('Backend did not start in time'))
+      } else {
+        setTimeout(check, 500)
+      }
+    }
+
+    check()
+  })
+}
+
+app.whenReady().then(async () => {
   startBackend()
 
-  // Wait for backend to start
-  setTimeout(() => {
-    createWindow()
-  }, 2000)
+  try {
+    await waitForBackend()
+  } catch (e) {
+    console.error('Failed to start backend:', e.message)
+  }
+
+  createWindow()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

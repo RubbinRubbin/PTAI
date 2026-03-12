@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const API_BASE = '/api'
+// In Electron production, the frontend is loaded from file:// so we need the full URL
+const isElectron = window.electronAPI?.isElectron
+const API_BASE = isElectron ? 'http://localhost:5000/api' : '/api'
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -28,6 +30,8 @@ export const exportAthlete = (id) => {
 export const exportMultipleAthletes = (ids) => {
   return api.post('/athletes/export', { athlete_ids: ids }, { responseType: 'blob' })
 }
+
+export const importAthletes = (data) => api.post('/athletes/import', data)
 
 // ============ METRIC DEFINITIONS ============
 

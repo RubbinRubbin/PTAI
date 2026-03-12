@@ -1,33 +1,53 @@
 {
   "name": "ptai-electron",
   "version": "1.0.0",
-  "description": "PTAI Desktop App",
+  "description": "PTAI Desktop App - Personal Trainer AI",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "start:dev": "NODE_ENV=development electron ."
+    "start:dev": "set NODE_ENV=development&& electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
-  "dependencies": {
-    "electron": "^28.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "electron": "^28.0.0",
     "electron-builder": "^24.9.0"
   },
   "build": {
     "appId": "com.ptai.app",
-    "productName": "PTAI - Personal Trainer AI",
+    "productName": "PTAI",
     "directories": {
       "output": "dist"
     },
     "files": [
       "main.js",
-      "preload.js",
-      "../frontend/dist/**/*",
-      "../backend/**/*"
+      "preload.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend_dist/ptai_backend",
+        "to": "backend",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../frontend/dist",
+        "to": "frontend/dist",
+        "filter": ["**/*"]
+      }
     ],
     "win": {
       "target": "nsis",
-      "icon": "icon.ico"
+      "signAndEditExecutable": false,
+      "sign": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PTAI"
     }
   }
 }

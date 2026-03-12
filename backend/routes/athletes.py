@@ -2,7 +2,7 @@ from flask import request, jsonify, send_file
 from datetime import datetime
 from . import api
 from database import db
-from models import Athlete
+from models import Athlete, MetricDefinition, MetricValue
 from services.export_service import export_athlete_to_json, export_multiple_athletes_to_json
 import io
 import json
@@ -104,3 +104,81 @@ def export_multiple_athletes():
         as_attachment=True,
         download_name=f'atleti_backup_{today}.json'
     )
+
+
+@api.route('/athletes/import', methods=['POST'])
+def import_athletes():
+    """Import athletes from a JSON backup file.
+    Supports both single-athlete and multi-athlete export formats.
+    """
+    data = request.get_json()
+
+    # Normalize: detect single vs multi format
+    athletes_data = []
+    if 'athletes' in data:
+        # Multi-athlete format
+        athletes_data = data['athletes']
+    elif 'athlete' in data:
+        # Single-athlete format
+        athletes_data = [data]
+    else:
+        return jsonify({'error': 'Formato JSON non riconosciuto'}), 400
+
+    imported_count = 0
+    skipped_count = 0
+
+    for entry in athletes_data:
+        a = entry.get('athlete', {})
+
+        # Check if athlete already exists (same nome + cognome)
+        existing = Athlete.query.filter_by(nome=a.get('nome'), cognome=a.get('cognome')).first()
+        if existing:
+            skipped_count += 1
+            continue
+
+        athlete = Athlete(
+            nome=a['nome'],
+            cognome=a['cognome'],
+            eta=a.get('eta', 0),
+            sport=a.get('sport', ''),
+            descrizione=a.get('descrizione'),
+            altezza=a.get('altezza'),
+            peso=a.get('peso'),
+            data_nascita=datetime.fromisoformat(a['data_nascita']).date() if a.get('data_nascita') else None,
+            note=a.get('note'),
+            pagato=a.get('pagato', False),
+        )
+        db.session.add(athlete)
+        db.session.flush()  # Get the athlete ID
+
+        # Import metric definitions and values
+        for md in entry.get('metric_definitions', []):
+            definition = MetricDefinition(
+                athlete_id=athlete.id,
+                nome=md['nome'],
+                asse_x_nome=md.get('asse_x_nome', ''),
+                asse_x_unita=md.get('asse_x_unita', ''),
+                asse_y_nome=md.get('asse_y_nome', ''),
+                asse_y_unita=md.get('asse_y_unita', ''),
+                note=md.get('note'),
+            )
+            db.session.add(definition)
+            db.session.flush()
+
+            for val in md.get('values', []):
+                value = MetricValue(
+                    definition_id=definition.id,
+                    valore_x=val['valore_x'],
+                    valore_y=val['valore_y'],
+                )
+                db.session.add(value)
+
+        imported_count += 1
+
+    db.session.commit()
+
+    return jsonify({
+        'message': f'{imported_count} profilo/i importato/i con successo',
+        'imported': imported_count,
+        'skipped': skipped_count,
+    }), 201

@@ -19,11 +19,12 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import FileUploadIcon from '@mui/icons-material/FileUpload'
 import SelectAllIcon from '@mui/icons-material/SelectAll'
 import CloseIcon from '@mui/icons-material/Close'
 import AthleteCard from '../components/AthleteCard'
 import AthleteForm from '../components/AthleteForm'
-import { getAthletes, createAthlete, updateAthlete, deleteAthlete, exportMultipleAthletes } from '../services/api'
+import { getAthletes, createAthlete, updateAthlete, deleteAthlete, exportMultipleAthletes, importAthletes } from '../services/api'
 
 function Home() {
   const navigate = useNavigate()
@@ -150,6 +151,36 @@ function Home() {
     setSelectedIds([])
   }
 
+  const handleImportFile = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      // Validate format
+      if (!data.athlete && !data.athletes) {
+        showSnackbar('File JSON non valido: formato non riconosciuto', 'error')
+        return
+      }
+
+      const response = await importAthletes(data)
+      const { imported, skipped } = response.data
+      let message = `${imported} profilo/i importato/i con successo`
+      if (skipped > 0) {
+        message += ` (${skipped} già esistente/i, saltato/i)`
+      }
+      showSnackbar(message, imported > 0 ? 'success' : 'info')
+      loadAthletes()
+    } catch (error) {
+      showSnackbar('Errore nell\'importazione del file', 'error')
+    }
+
+    // Reset input so the same file can be re-selected
+    event.target.value = ''
+  }
+
   return (
     <Container maxWidth="lg">
       <Box sx={{ mb: 4 }}>
@@ -181,6 +212,20 @@ function Home() {
                 disabled={athletes.length === 0}
               >
                 Esporta
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<FileUploadIcon />}
+                component="label"
+                color="success"
+              >
+                Importa Backup
+                <input
+                  type="file"
+                  accept=".json"
+                  hidden
+                  onChange={handleImportFile}
+                />
               </Button>
               <Button
                 variant="contained"
