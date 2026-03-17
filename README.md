@@ -54,7 +54,7 @@ Il frontend sara disponibile su `http://localhost:5173`, il backend su `http://l
 
 ## Build dell'installer
 
-Per creare il file `.exe` da distribuire al cliente:
+Per creare il file `.exe`:
 
 ```bash
 npm run electron:dist
