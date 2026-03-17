@@ -17,11 +17,6 @@ function Navbar() {
         >
           PTAI - Personal Trainer AI
         </Typography>
-        <Box>
-          <Button color="inherit" onClick={() => navigate('/')}>
-            Atleti
-          </Button>
-        </Box>
       </Toolbar>
     </AppBar>
   )

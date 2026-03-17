@@ -23,8 +23,8 @@ def create_app():
     CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 
     # Ensure data directory exists
-    data_dir = os.path.join(BASE_DIR, 'data')
-    os.makedirs(data_dir, exist_ok=True)
+    from config import DATA_DIR
+    os.makedirs(DATA_DIR, exist_ok=True)
 
     # Import models before initializing database
     from models import Athlete, MetricDefinition, MetricValue, Chart

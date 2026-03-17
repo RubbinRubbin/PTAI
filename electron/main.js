@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, Menu } = require('electron')
 const path = require('path')
 const { spawn, execFile } = require('child_process')
 const http = require('http')
@@ -146,6 +146,7 @@ function waitForBackend(retries = 30) {
 }
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null)
   startBackend()
 
   try {
