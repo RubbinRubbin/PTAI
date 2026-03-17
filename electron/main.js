@@ -14,6 +14,8 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 768,
+    show: false,
+    backgroundColor: '#f5f5f5',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -21,6 +23,10 @@ function createWindow() {
     },
     icon: path.join(__dirname, 'icon.png'),
     title: 'PTAI - Personal Trainer AI',
+  })
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
   })
 
   if (isDev) {
